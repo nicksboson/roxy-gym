@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabaseClient';
 import { compressImage } from '../utils';
+import { SignOutButton } from '@clerk/react';
 
 export default function OwnerSidebar({
   adminProfile = null,
@@ -223,6 +224,19 @@ export default function OwnerSidebar({
             </div>
           </section>
 
+          <div className="sidebar-footer-card">
+            <SignOutButton>
+              <button
+                type="button"
+                className="sidebar-signout-btn"
+                onClick={() => {
+                  closeSidebar();
+                }}
+              >
+                Sign out
+              </button>
+            </SignOutButton>
+          </div>
 
         </div>
       </aside>
