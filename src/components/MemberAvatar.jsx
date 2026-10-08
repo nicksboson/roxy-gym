@@ -25,7 +25,7 @@ function MemberAvatar({ src, name, className = 'member-photo', style, size }) {
   }
 
   return (
-    <div className={`avatar ${className}`} style={combinedStyle}>
+    <div className={`avatar ${className}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', ...combinedStyle }}>
       {initials(name)}
     </div>
   );

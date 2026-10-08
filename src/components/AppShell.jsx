@@ -13,7 +13,8 @@ import ErrorBoundary from './ErrorBoundary';
 import GlassBottomNav from './GlassBottomNav';
 
 // Lazy-load route components to prevent loading all views on initial load
-const AdminDashboard = lazy(() => import('../pages/AdminDashboard'));
+const DashboardPage = lazy(() => import('../pages/DashboardPage'));
+const MembersListPage = lazy(() => import('../pages/MembersListPage'));
 const PerformancePage = lazy(() => import('../pages/PerformancePage'));
 const RegisterPage = lazy(() => import('../pages/RegisterPage'));
 const PlansPage = lazy(() => import('../pages/PlansPage'));
@@ -26,44 +27,34 @@ function PageLoader() {
 function Layout({ user, profile, activeTab = 0, onTabSelect, isSwipeRoute = false, children }) {
   const { toggleSidebar } = useTheme();
   const location = useLocation();
+  const navigate = useNavigate();
   const ownerName = profile?.name ? profile.name.split(' ')[0] : (user?.email?.split('@')[0] || 'Owner');
 
   const adminTabs = useMemo(() => [
     {
-      id: 'members',
-      label: 'Members',
-      title: 'Members',
-      path: '/members',
+      id: 'dashboard',
+      label: 'Dashboard',
+      title: 'Dashboard',
+      path: '/dashboard',
       icon: (
         <svg className="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-          <circle cx="12" cy="7" r="4" />
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
         </svg>
       )
     },
     {
       id: 'performance',
-      label: 'Overview',
-      title: 'Overview',
+      label: 'Insights',
+      title: 'Insights',
       path: '/performance',
       icon: (
         <svg className="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12M2 12h4M18 12h4" />
-        </svg>
-      )
-    },
-    {
-      id: 'register',
-      label: 'Register',
-      title: 'Register',
-      path: '/register',
-      icon: (
-        <svg className="tab-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <line x1="10" y1="9" x2="8" y2="9" />
+          <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
       )
     }
@@ -73,11 +64,29 @@ function Layout({ user, profile, activeTab = 0, onTabSelect, isSwipeRoute = fals
     <div className="roxy-app">
       <div className={`app-shell ${isSwipeRoute ? 'swipe-layout' : ''}`}>
         <header className="topbar">
-          <div>
-            <div className="brand">Roxy <span>GYM</span></div>
+            <div onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
+              <div className="brand">Roxy <span>GYM</span></div>
             <div className="brand-sub">Owner Management</div>
           </div>
-          <div className="topbar-actions">
+          <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/register')}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: 'var(--surface-hover)', color: 'var(--ink)'
+              }}
+              aria-label="Register Member"
+              title="Register New Member"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <line x1="20" y1="8" x2="20" y2="14" />
+                <line x1="23" y1="11" x2="17" y2="11" />
+              </svg>
+            </button>
             <button
               type="button"
               className="owner-profile-btn"
@@ -132,14 +141,14 @@ export default function AppShell({ user, profile }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const TAB_PATHS = useMemo(() => ['/members', '/performance', '/register'], []);
+  const TAB_PATHS = useMemo(() => ['/dashboard', '/performance'], []);
   const currentTabIndex = TAB_PATHS.indexOf(location.pathname);
   const isSwipeRoute = currentTabIndex !== -1 || location.pathname === '/';
   const activeTab = currentTabIndex !== -1 ? currentTabIndex : 0;
 
   useEffect(() => {
     if (location.pathname === '/') {
-      navigate('/members', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [location.pathname, navigate]);
 
@@ -156,11 +165,25 @@ export default function AppShell({ user, profile }) {
     }
   }, [TAB_PATHS, location.pathname, navigate]);
 
-  const { data: dbMembers, hasMore: hasMoreMembers } = useMembers(true, profile?.uid, memberLimit);
+  const { data: dbMembers, hasMore: hasMoreMembers, refetch: refetchMembers } = useMembers(true, profile?.uid, memberLimit);
   const dbPlans = usePlans().data;
 
   const members = dbMembers;
   const plans = dbPlans;
+
+  // Refetch whenever we navigate back to /dashboard
+  useEffect(() => {
+    if (location.pathname === '/dashboard' || location.pathname === '/members') {
+      refetchMembers();
+    }
+  }, [location.pathname, refetchMembers]);
+
+  // Refetch when window regains focus (handles tab switching, screen unlock, etc.)
+  useEffect(() => {
+    const onFocus = () => refetchMembers();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetchMembers]);
 
   const data = { members, plans };
 
@@ -176,18 +199,24 @@ export default function AppShell({ user, profile }) {
         <Suspense fallback={<PageLoader />}>
           {isSwipeRoute ? (
             <SwipeTabViews activeIndex={activeTab} onChangeTab={handleSwipeChange}>
-              <AdminDashboard
-                {...data}
-                hasMore={hasMoreMembers}
-                onLoadMore={() => setMemberLimit(l => l + 50)}
-              />
+              <DashboardPage {...data} />
               <PerformancePage {...data} />
-              <RegisterPage plans={plans} />
+              
             </SwipeTabViews>
           ) : (
             <Routes>
-              <Route path="/" element={<Navigate to="/members" replace />} />
-              <Route path="/plans" element={<PlansPage plans={plans} />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route 
+                path="/members" 
+                element={
+                  <MembersListPage 
+                    {...data} 
+                    hasMore={hasMoreMembers} 
+                    onLoadMore={() => setMemberLimit(l => l + 50)} 
+                  />
+                } 
+              />
+              <Route path="/register" element={<RegisterPage plans={plans} />} />`n                <Route path="/plans" element={<PlansPage plans={plans} />} />
               <Route path="/calendar" element={<CalendarPage members={members} />} />
               <Route path="*" element={<ErrorPage type="404" inline />} />
             </Routes>

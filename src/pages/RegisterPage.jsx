@@ -11,7 +11,7 @@ export default function RegisterPage({ plans = [] }) {
       <p className="notice">
         Add the member photo, personal details, payment, and plan. Expiry is calculated from the selected plan.
       </p>
-      <MemberForm plans={plans} onDone={() => navigate('/members')} />
+      <MemberForm plans={plans} onDone={() => navigate('/dashboard')} />
     </main>
   );
 }

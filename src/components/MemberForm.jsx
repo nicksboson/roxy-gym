@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { compressImage, dateInput, friendlyError } from '../utils';
+import { compressImage, dateInput, friendlyError, triggerRefetch, formatDateLocal } from '../utils';
 import CameraCapture from './CameraCapture';
 import MembershipCalendarPicker from './MembershipCalendarPicker';
 
@@ -8,6 +8,7 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
   const existingMembership = existing?.membership;
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(existing?.photoURL || existing?.photo || '');
+  const [paymentMethod, setPaymentMethod] = useState(existing ? (existing.paymentStatus === 'pending' ? 'Pending' : (existing.payment || 'Online')) : 'Online');
 
   const initialPlan = plans.find(p => p.id === (existingMembership?.planId || existing?.planId)) || plans[0];
 
@@ -74,9 +75,10 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
 
     try {
       const memberId = existing?.id || existing?.uid;
-      const expiry = new Date(`${form.startDate}T00:00:00`);
+      const parts = form.startDate.split('-');
+      const expiry = new Date(parts[0], parts[1] - 1, parts[2]); // Parse locally
       expiry.setDate(expiry.getDate() + Number(plan?.durationDays || 30));
-      const expiryIso = expiry.toISOString().slice(0, 10);
+      const expiryIso = formatDateLocal(expiry);
 
       // Handle photo upload
       let finalPhotoURL = preview;
@@ -115,9 +117,10 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
         start_date: form.startDate,
         expiry_date: expiryIso,
         amount: parsedAmount,
-        payment_method: 'Pending',
-        payment_status: 'pending',
+        payment_method: paymentMethod,
+        payment_status: paymentMethod === 'Pending' ? 'pending' : 'paid',
         photo_url: finalPhotoURL || null
+        // user_id intentionally omitted — Clerk IDs are not valid Postgres UUIDs
       };
 
       let finalId = memberId;
@@ -136,6 +139,20 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
           .single();
         if (insertErr) throw insertErr;
         finalId = inserted?.id;
+
+        // CRITICAL FIX: Log the initial registration payment into the ledger!
+        try {
+          await supabase.from('payments').insert({
+            member_id: finalId,
+            plan_name: memberPayload.plan_name,
+            amount: memberPayload.amount,
+            method: memberPayload.payment_method,
+            status: memberPayload.payment_status,
+            payment_date: memberPayload.start_date
+          });
+        } catch (err) {
+          console.error("Failed to log initial payment", err);
+        }
       }
 
       // Re-upload photo with permanent member ID as filename
@@ -160,6 +177,7 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
         }
       }
 
+      triggerRefetch();
       onDone();
     } catch (err) {
       setError(friendlyError(err));
@@ -307,7 +325,18 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
           </div>
         </div>
 
-        <MembershipCalendarPicker
+                  {form.amount !== '' && (
+            <div className="field">
+              <label>Payment Method</label>
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
+                <option value="Online">Online (UPI / Card)</option>
+                <option value="Cash">Cash</option>
+                <option value="Pending">Pending (Will pay later)</option>
+              </select>
+            </div>
+          )}
+
+          <MembershipCalendarPicker
           startDate={form.startDate}
           onChangeStartDate={iso => setForm(f => ({ ...f, startDate: iso }))}
           planDurationDays={plan?.durationDays}

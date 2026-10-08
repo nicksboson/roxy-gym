@@ -1,7 +1,18 @@
 
+// Triggers an instant data refetch across the app after any CRUD operation
+export const triggerRefetch = () => window.dispatchEvent(new CustomEvent('roxy:refetch'));
+
 export const plans = { '1 Month': 30, '3 Months': 90, '6 Months': 180, '1 Year': 365 };
 export const today = () => {
   const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Formats a Date object as YYYY-MM-DD strictly in local time (avoids toISOString UTC shift bugs)
+export const formatDateLocal = (d) => {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');

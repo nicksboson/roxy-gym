@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { asDate, dateText, statusFor, statusLabel, today, toTimestamp, triggerRefetch, formatDateLocal } from '../utils';
+import { asDate, dateText, statusFor, statusLabel, today, formatDateLocal, triggerRefetch } from '../utils';
 import MemberCard from '../components/MemberCard';
 import MemberAvatar from '../components/MemberAvatar';
 import MemberContactActions from '../components/MemberContactActions';
 import MemberForm from '../components/MemberForm';
 
-function Details({ member, memberships, payments, plans, onClose, onEdit, onRenew, onDelete, onMarkPaid }) {
+function Details({ member, plans, onClose, onEdit, onRenew, onDelete, onMarkPaid, payments }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -21,13 +22,19 @@ function Details({ member, memberships, payments, plans, onClose, onEdit, onRene
   const planName = member.planName || member.plan || 'Not set';
   const expiry = member.expiryDate || member.expiry;
   const memberStatus = statusFor(member);
-  const ownPayments = member.payments || (member.amount ? [{
+  const rawPayments = member.payments || (member.amount ? [{
     id: 'pay-1',
-    planName: planName,
+    plan_name: planName,
     amount: member.amount,
-    method: member.payment || (member.paymentStatus === 'pending' ? 'Pending' : 'Paid'),
-    date: member.startDate || today()
+    method: member.paymentMethod || member.payment || (member.paymentStatus === 'pending' ? 'Pending' : 'Paid'),
+    payment_date: member.startDate || today()
   }] : payments?.filter(item => item.userId === member.uid || item.userId === member.id) || []);
+
+  const ownPayments = [...rawPayments].sort((a, b) => {
+    const d1 = new Date(b.payment_date || b.date || b.created_at || 0).getTime();
+    const d2 = new Date(a.payment_date || a.date || a.created_at || 0).getTime();
+    return d1 - d2;
+  });
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -112,7 +119,7 @@ function Details({ member, memberships, payments, plans, onClose, onEdit, onRene
             <h3 className="history-heading">Membership history</h3>
             {member.memberships.map((item, idx) => (
               <p className="history-row" key={item.id || idx}>
-                {item.planName || item.plan} · expires {dateText(item.expiryDate)}
+                {item.planName || item.plan_name || item.plan} · expires {dateText(item.expiryDate)}
               </p>
             ))}
           </>
@@ -125,9 +132,9 @@ function Details({ member, memberships, payments, plans, onClose, onEdit, onRene
             style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}
           >
             <span>
-              <strong>{item.planName || item.plan || planName}</strong> · ₹{item.amount}<br />
+              <strong>{item.plan_name || item.planName || item.plan || planName}</strong> · ₹{item.amount}<br />
               <small style={{ color: 'var(--soft)' }}>
-                {item.method === 'Pending' ? 'Status: Pending' : `Paid: ${dateText(item.date)} (${item.method})`}
+                {item.method === 'Pending' ? 'Status: Pending' : `Paid: ${dateText(item.payment_date || item.date)} (${item.method})`}
               </small>
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -153,6 +160,11 @@ function Details({ member, memberships, payments, plans, onClose, onEdit, onRene
 }
 
 function AdminRenewModal({ member, plans, onRenew, onClose }) {
+  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [customAmount, setCustomAmount] = useState('');
+  const [startDate, setStartDate] = useState(today());
+  const [paymentMethod, setPaymentMethod] = useState('Online');
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -161,36 +173,103 @@ function AdminRenewModal({ member, plans, onRenew, onClose }) {
     };
   }, []);
 
+  const handlePlanChange = (e) => {
+    const pid = e.target.value;
+    setSelectedPlanId(pid);
+    const plan = plans.find(p => p.id === pid);
+    if (plan) {
+      setCustomAmount('');
+    } else {
+      setCustomAmount('');
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!selectedPlanId) return alert('Select a plan');
+    if (customAmount === '') return alert('Enter an amount');
+    if (!startDate) return alert('Select a start date');
+    onRenew(member, selectedPlanId, Number(customAmount), startDate, paymentMethod);
+  };
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <section className="modal-card" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>×</button>
-        <h2>Renew {member.name}</h2>
-        <p>Select a plan. The new membership is appended to history and payment is marked pending.</p>
-        <div className="plan-choice-list">
-          {plans.map(plan => (
-            <button
-              type="button"
-              className="outline-btn"
-              key={plan.id}
-              onClick={() => onRenew(member, plan.id)}
-            >
-              {plan.planName} · {plan.durationDays} days
+        <h2 style={{ margin: '0 0 8px' }}>Renew {member.name}</h2>
+        <p style={{ margin: '0 0 20px', color: 'var(--text-secondary)', fontSize: 14 }}>
+          Select a plan and confirm the payment amount.
+        </p>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="field">
+            <label>Start Date</label>
+            <input 
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="field">
+            <label>Select Plan</label>
+            <select value={selectedPlanId} onChange={handlePlanChange} required>
+              <option value="" disabled>Choose a plan...</option>
+              {plans.map(plan => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.planName} ({plan.durationDays} days)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedPlanId && (
+            <div className="field">
+              <label>Amount to Charge (₹)</label>
+              <input 
+                type="number" 
+                value={customAmount} 
+                onChange={e => setCustomAmount(e.target.value)}
+                min="0"
+                required
+              />
+            </div>
+          )}
+
+          {selectedPlanId && customAmount !== '' && (
+            <div className="field">
+              <label>Payment Method</label>
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
+                <option value="Online">Online (UPI / Card)</option>
+                <option value="Cash">Cash</option>
+                <option value="Pending">Pending (Will pay later)</option>
+              </select>
+            </div>
+          )}
+
+          <div className="modal-actions" style={{ marginTop: '8px' }}>
+            <button type="submit" className="primary-btn" disabled={!selectedPlanId || customAmount === ''}>
+              Confirm Renewal
             </button>
-          ))}
-        </div>
-        <button type="button" className="text-btn" onClick={onClose}>Cancel</button>
+            <button type="button" className="text-btn" onClick={onClose}>Cancel</button>
+          </div>
+        </form>
       </section>
     </div>
   );
 }
 
-export default function AdminDashboard({ members, memberships, payments, plans, hasMore, onLoadMore }) {
+export default function MembersListPage({ members, plans, hasMore, onLoadMore }) {
+  const [searchParams] = useSearchParams();
+  const filter = searchParams.get('filter') || 'all';
+  const navigate = useNavigate();
+
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
   const [editing, setEditing] = useState(null);
   const [details, setDetails] = useState(null);
   const [renewing, setRenewing] = useState(null);
+
   const visible = useMemo(() => {
     const q = search.toLowerCase();
     return members.filter(member => member.name?.toLowerCase().includes(q) || member.phone?.includes(search));
@@ -200,9 +279,8 @@ export default function AdminDashboard({ members, memberships, payments, plans, 
     return visible.filter(member => {
       if (filter === 'all') return true;
       if (filter.startsWith('expiring')) {
-        if (statusFor(member) !== 'expiring') return false;
         
-        // Define daysUntil locally inside useMemo to avoid dependency array issues
+        
         const dUntil = (expiryStr) => {
           if (!expiryStr) return Infinity;
           const exp = asDate(expiryStr);
@@ -215,23 +293,26 @@ export default function AdminDashboard({ members, memberships, payments, plans, 
         if (filter === 'expiring1to3') return d >= 1 && d <= 3;
         if (filter === 'expiring4to7') return d >= 4 && d <= 7;
         if (filter === 'expiring8to15') return d >= 8 && d <= 15;
-        return true; // just 'expiring'
+        return true; 
       }
       return statusFor(member) === filter;
     });
   }, [visible, filter]);
 
-  const handleEdit = useCallback(item => {
-    setEditing(item);
-  }, []);
+  const handleEdit = useCallback(item => { setEditing(item); }, []);
+  const handleDetails = useCallback(member => { setDetails(member); }, []);
+  const handleRenew = useCallback(member => { setRenewing(member); }, []);
 
-  const handleDetails = useCallback(member => {
-    setDetails(member);
-  }, []);
-
-  const handleRenew = useCallback(member => {
-    setRenewing(member);
-  }, []);
+  // Keep details modal perfectly in sync with the global database state
+  useEffect(() => {
+    if (details) {
+      const fresh = members.find(m => (m.id || m.uid) === (details.id || details.uid));
+      // Shallow comparison is usually enough for the top-level fields, but stringify ensures we catch nested payment updates
+      if (fresh && JSON.stringify(fresh) !== JSON.stringify(details)) {
+        setDetails(fresh);
+      }
+    }
+  }, [members, details]);
 
   const remove = useCallback(async member => {
     if (!window.confirm(`Delete ${member.name}? This cannot be undone.`)) return;
@@ -246,49 +327,49 @@ export default function AdminDashboard({ members, memberships, payments, plans, 
         const parts = member.photoURL.split('/');
         const filename = parts[parts.length - 1];
         await supabase.storage.from('member-photos').remove([filename]);
-      } catch {
-        /* optional photo cleanup */
-      }
+      } catch { }
     }
     triggerRefetch();
   }, []);
 
-  const renew = async (member, planId) => {
+  const renew = async (member, planId, customAmount, selectedStartDate, paymentMethodArg) => {
     const plan = plans.find(item => item.id === planId);
     if (!plan) return;
     const memberId = member.id || member.uid;
-    const expiry = new Date();
+    
+    const parts = selectedStartDate.split('-');
+    const expiry = new Date(parts[0], parts[1] - 1, parts[2]); 
     expiry.setDate(expiry.getDate() + Number(plan.durationDays));
+    
     const expiryDateStr = formatDateLocal(expiry);
-    const todayStr = today();
+    const startDateStr = selectedStartDate;
+
+    const actualAmount = customAmount !== undefined && customAmount !== '' ? Number(customAmount) : 0;
+    const paymentStatus = paymentMethodArg === 'Pending' ? 'pending' : 'paid';
+    const paymentMethod = paymentMethodArg;
 
     const renewalRecord = {
       member_id: memberId,
       plan_name: plan.planName,
-      amount: Number(plan.price),
-      method: 'Pending',
-      status: 'pending',
-      payment_date: todayStr
+      amount: actualAmount,
+      method: paymentMethod,
+      status: paymentStatus,
+      payment_date: startDateStr
     };
 
-    await supabase
-      .from('members')
-      .update({
-        plan_name: plan.planName,
-        plan_id: planId && planId.length > 20 ? planId : null,
-        start_date: todayStr,
-        expiry_date: expiryDateStr,
-        payment_status: 'pending',
-        payment_method: 'Pending',
-        amount: Number(plan.price)
-      })
-      .eq('id', memberId);
+    await supabase.from('members').update({
+      plan_name: plan.planName,
+      plan_id: planId && planId.length > 20 ? planId : null,
+      start_date: startDateStr,
+      expiry_date: expiryDateStr,
+      payment_status: paymentStatus,
+      payment_method: paymentMethod,
+      amount: actualAmount
+    }).eq('id', memberId);
 
     try {
       await supabase.from('payments').insert(renewalRecord);
-    } catch (pe) {
-      console.warn('Payment insert note:', pe);
-    }
+    } catch (pe) { }
 
     triggerRefetch();
     setRenewing(null);
@@ -297,112 +378,41 @@ export default function AdminDashboard({ members, memberships, payments, plans, 
   const markPaymentPaid = async memberOrId => {
     try {
       const memberId = typeof memberOrId === 'string' ? memberOrId : (memberOrId?.id || memberOrId?.uid);
-      await supabase
-        .from('members')
-        .update({
-          payment_status: 'paid',
-          payment_method: 'Cash'
-        })
-        .eq('id', memberId);
+      await supabase.from('members').update({
+        payment_status: 'paid',
+        payment_method: 'Cash'
+      }).eq('id', memberId);
 
       try {
-        await supabase
-          .from('payments')
-          .update({
-            status: 'paid',
-            method: 'Cash'
-          })
-          .eq('member_id', memberId)
-          .eq('status', 'pending');
+        await supabase.from('payments').update({
+          status: 'paid',
+          method: 'Cash'
+        }).eq('member_id', memberId).eq('status', 'pending');
       } catch {}
 
-      if (details && (details.id === memberId || details.uid === memberId)) {
-        setDetails(prev => prev ? ({ ...prev, paymentStatus: 'paid', payment: 'Cash' }) : null);
-      }
       triggerRefetch();
     } catch (err) {
       console.error('Failed to update payment status:', err);
     }
   };
 
-  const daysUntil = (expiryStr) => {
-    if (!expiryStr) return Infinity;
-    const exp = asDate(expiryStr);
-    const now = new Date();
-    const diffTime = exp.getTime() - now.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const activeCount = members.filter(m => statusFor(m) === 'active').length;
-  const expiredCount = members.filter(m => statusFor(m) === 'expired').length;
-  const expiring1to3 = members.filter(m => statusFor(m) === 'expiring' && daysUntil(m.expiryDate) >= 1 && daysUntil(m.expiryDate) <= 3).length;
-  const expiring4to7 = members.filter(m => statusFor(m) === 'expiring' && daysUntil(m.expiryDate) >= 4 && daysUntil(m.expiryDate) <= 7).length;
-  const expiring8to15 = members.filter(m => statusFor(m) === 'expiring' && daysUntil(m.expiryDate) >= 8 && daysUntil(m.expiryDate) <= 15).length;
-
-  const currentMonth = new Date().getMonth();
-  const totalCollection = members.reduce((sum, member) => {
-    let memberSum = 0;
-    if (Array.isArray(member.payments) && member.payments.length > 0) {
-      memberSum += member.payments
-        .filter(p => p.method !== 'Pending' && p.status === 'paid')
-        .reduce((s, p) => s + Number(p.amount || 0), 0);
-    }
-    // Also include current plan amount if paid and not yet moved to payments log
-    if (member.paymentStatus === 'paid') {
-      memberSum += Number(member.amount || 0);
-    }
-    return sum + memberSum;
-  }, 0);
-
-  const pendingDues = members
-    .filter(m => statusFor(m) === 'pending')
-    .reduce((sum, m) => sum + Number(m.amount || 0), 0);
-
-  const dashCards = [
-    { label: 'Live Memberships', count: activeCount, filter: 'active', icon: '👤' },
-    { label: 'Total Memberships', count: members.length, filter: 'all', icon: '👥' },
-    { label: 'Expired Memberships', count: expiredCount, filter: 'expired', icon: '⚠️' },
-    { label: 'Expiring (1-3 Days)', count: expiring1to3, filter: 'expiring1to3', icon: '⏳' },
-    { label: 'Expiring (4-7 Days)', count: expiring4to7, filter: 'expiring4to7', icon: '📅' },
-    { label: 'Expiring (8-15 Days)', count: expiring8to15, filter: 'expiring8to15', icon: '🗓️' },
-    { label: 'Due Amount', count: `₹${pendingDues}`, filter: 'pending', icon: '💳' },
-    { label: 'Total Collection', count: `₹${totalCollection}`, filter: 'all', icon: '💰' },
-  ];
+  let title = 'Members';
+  if (filter === 'active') title = 'Live Memberships';
+  else if (filter === 'expired') title = 'Expired Memberships';
+  else if (filter === 'pending') title = 'Due Amount';
+  else if (filter === 'expiring1to3') title = 'Expiring (1-3 Days)';
+  else if (filter === 'expiring4to7') title = 'Expiring (4-7 Days)';
+  else if (filter === 'expiring8to15') title = 'Expiring (8-15 Days)';
 
   return (
     <main>
-      <div className="eyebrow">Dashboard</div>
-      <h1 className="page-title">Gym Overview</h1>
-      
-      <div className="dashboard-grid">
-        {dashCards.map((card, i) => (
-          <button 
-            key={i} 
-            className="stat stat-btn" 
-            style={{ 
-              aspectRatio: '1', 
-              display: 'flex', 
-              flexDirection: 'column', 
-              justifyContent: 'space-between',
-              alignItems: 'stretch',
-              padding: '16px',
-              textAlign: 'left',
-              gap: '8px'
-            }}
-            onClick={() => setFilter(card.filter)}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '24px', background: 'var(--surface-light, rgba(255,255,255,0.1))', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {card.icon}
-              </div>
-              <strong style={{ fontSize: '20px' }}>{card.count}</strong>
-            </div>
-            <div style={{ fontSize: '13px', lineHeight: '1.2', fontWeight: '500', color: 'var(--text-secondary)' }}>
-              {card.label}
-            </div>
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <button className="outline-btn" onClick={() => navigate('/dashboard')} style={{ padding: '6px 12px', border: 'none', background: 'var(--surface)' }}>
+          ← Back
+        </button>
       </div>
+      <div className="eyebrow">List View</div>
+      <h1 className="page-title">{title} ({categorized.length})</h1>
       <div className="toolbar">
         <input type="search" placeholder="Search name or phone" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
@@ -449,20 +459,19 @@ export default function AdminDashboard({ members, memberships, payments, plans, 
             <MemberForm
               existing={editing}
               plans={plans}
-              onDone={() => {
-                const uid = editing.uid;
-                setEditing(null);
-                if (details && details.uid === uid) {
-                  const refreshed = members.find(m => m.uid === uid);
-                  if (refreshed) setDetails(refreshed);
-                }
-              }}
-              onCancel={() => setEditing(null)}
+              onDone={() => setEditing(null)}
             />
           </section>
         </div>
       )}
-      {renewing && <AdminRenewModal member={renewing} plans={plans} onRenew={renew} onClose={() => setRenewing(null)} />}
+      {renewing && (
+        <AdminRenewModal
+          member={renewing}
+          plans={plans}
+          onClose={() => setRenewing(null)}
+          onRenew={renew}
+        />
+      )}
     </main>
   );
 }

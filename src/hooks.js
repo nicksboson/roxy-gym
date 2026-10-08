@@ -63,11 +63,11 @@ export function useMembers(admin = true, uid = null, limitCount = 100) {
 
   const fetchMembers = useCallback(async () => {
     try {
-      let query = supabase.from('members').select('*');
+      let query = supabase.from('members').select('*, payments(*)');
       if (!admin && uid) {
         query = query.eq('user_id', uid);
       }
-      query = query.order('name', { ascending: true }).limit(limitCount);
+      query = query.order('created_at', { ascending: false });
 
       const { data: rows, error: err } = await query;
       if (err) {
@@ -77,7 +77,7 @@ export function useMembers(admin = true, uid = null, limitCount = 100) {
 
       const list = (rows || []).map(mapMemberFromSupabase);
       setData(list);
-      setHasMore(admin && (rows?.length || 0) >= limitCount);
+      setHasMore(false);
       setError(null);
     } catch (err) {
       setError(err);
@@ -93,14 +93,17 @@ export function useMembers(admin = true, uid = null, limitCount = 100) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'members' },
-        () => {
-          fetchMembers();
-        }
+        () => { fetchMembers(); }
       )
       .subscribe();
 
+    // Also listen for manual refetch trigger from any CRUD operation
+    const onRefetch = () => fetchMembers();
+    window.addEventListener('roxy:refetch', onRefetch);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('roxy:refetch', onRefetch);
     };
   }, [fetchMembers]);
 
@@ -164,8 +167,12 @@ export function usePlans() {
       )
       .subscribe();
 
+    const onRefetch = () => fetchPlans();
+    window.addEventListener('roxy:refetch', onRefetch);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('roxy:refetch', onRefetch);
     };
   }, [fetchPlans]);
 
@@ -229,8 +236,12 @@ export function usePayments(admin = true, uid = null, limitCount = 100) {
       )
       .subscribe();
 
+    const onRefetch = () => fetchPayments();
+    window.addEventListener('roxy:refetch', onRefetch);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('roxy:refetch', onRefetch);
     };
   }, [fetchPayments]);
 

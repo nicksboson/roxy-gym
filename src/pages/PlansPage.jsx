@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { friendlyError } from '../utils';
+import { friendlyError, triggerRefetch } from '../utils';
 
 export default function PlansPage({ plans = [] }) {
   const [editing, setEditing] = useState(undefined);
@@ -38,6 +38,7 @@ export default function PlansPage({ plans = [] }) {
           .insert(payload);
         if (err) throw err;
       }
+      triggerRefetch();
       setEditing(undefined);
     } catch (err) {
       setError(friendlyError(err));
@@ -52,6 +53,7 @@ export default function PlansPage({ plans = [] }) {
           .delete()
           .eq('id', plan.id);
         if (err) alert(friendlyError(err));
+        else triggerRefetch();
       } catch (err) {
         alert(friendlyError(err));
       }

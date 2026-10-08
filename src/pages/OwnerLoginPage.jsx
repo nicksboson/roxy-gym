@@ -69,7 +69,7 @@ export default function OwnerLoginPage() {
         }
 
         if (data?.session) {
-          navigate('/members', { replace: true });
+          navigate('/dashboard', { replace: true });
         } else {
           setSuccess('Owner account created! Check your email to confirm, then sign in.');
           setIsSetupMode(false);
@@ -80,7 +80,7 @@ export default function OwnerLoginPage() {
           password
         });
         if (signInErr) throw signInErr;
-        navigate('/members', { replace: true });
+        navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       setError(friendlyError(err));
