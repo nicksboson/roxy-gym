@@ -163,7 +163,7 @@ function AdminRenewModal({ member, plans, onRenew, onClose }) {
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [customAmount, setCustomAmount] = useState('');
   const [startDate, setStartDate] = useState(today());
-  const [paymentMethod, setPaymentMethod] = useState('Online');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -177,8 +177,8 @@ function AdminRenewModal({ member, plans, onRenew, onClose }) {
     const pid = e.target.value;
     setSelectedPlanId(pid);
     const plan = plans.find(p => p.id === pid);
-    if (plan) {
-      setCustomAmount('');
+    if (plan && plan.price !== undefined && plan.price !== null) {
+      setCustomAmount(String(plan.price));
     } else {
       setCustomAmount('');
     }
@@ -225,27 +225,29 @@ function AdminRenewModal({ member, plans, onRenew, onClose }) {
           </div>
 
           {selectedPlanId && (
-            <div className="field">
-              <label>Amount to Charge (₹)</label>
-              <input 
-                type="number" 
-                value={customAmount} 
-                onChange={e => setCustomAmount(e.target.value)}
-                min="0"
-                required
-              />
-            </div>
-          )}
+            <>
+              <div className="field">
+                <label>Amount to Charge (₹)</label>
+                <input 
+                  type="number" 
+                  value={customAmount} 
+                  onChange={e => setCustomAmount(e.target.value)}
+                  min="0"
+                  placeholder="Enter amount"
+                  required
+                />
+              </div>
 
-          {selectedPlanId && customAmount !== '' && (
-            <div className="field">
-              <label>Payment Method</label>
-              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
-                <option value="Online">Online (UPI / Card)</option>
-                <option value="Cash">Cash</option>
-                <option value="Pending">Pending (Will pay later)</option>
-              </select>
-            </div>
+              <div className="field">
+                <label>Mode of Payment</label>
+                <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Online">Online / Card</option>
+                  <option value="Pending">Pending (Pay later)</option>
+                </select>
+              </div>
+            </>
           )}
 
           <div className="modal-actions" style={{ marginTop: '8px' }}>

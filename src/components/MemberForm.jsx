@@ -8,7 +8,7 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
   const existingMembership = existing?.membership;
   const [photo, setPhoto] = useState(null);
   const [preview, setPreview] = useState(existing?.photoURL || existing?.photo || '');
-  const [paymentMethod, setPaymentMethod] = useState(existing ? (existing.paymentStatus === 'pending' ? 'Pending' : (existing.payment || 'Online')) : 'Online');
+  const [paymentMethod, setPaymentMethod] = useState(existing ? (existing.paymentStatus === 'pending' ? 'Pending' : (existing.payment || 'UPI')) : 'UPI');
 
   const initialPlan = plans.find(p => p.id === (existingMembership?.planId || existing?.planId)) || plans[0];
 
@@ -329,8 +329,9 @@ export default function MemberForm({ existing, plans = [], onDone, onCancel }) {
             <div className="field">
               <label>Payment Method</label>
               <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} required>
-                <option value="Online">Online (UPI / Card)</option>
                 <option value="Cash">Cash</option>
+                <option value="UPI">UPI</option>
+                <option value="Card">Card</option>
                 <option value="Pending">Pending (Will pay later)</option>
               </select>
             </div>
