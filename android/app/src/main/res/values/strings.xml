@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Roxy GYM</string>
+    <string name="title_activity_main">Roxy GYM</string>
+    <string name="package_name">com.roxygym.app</string>
+    <string name="custom_url_scheme">com.roxygym.app</string>
+</resources>

@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3",
     "@clerk/react": "^6.17.6",
     "@supabase/supabase-js": "^2.117.2",
     "@tailwindcss/vite": "^4.3.3",
@@ -18,9 +21,13 @@
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@vitejs/plugin-react": "^4.3.4",
     "rollup-plugin-visualizer": "^7.1.1",
     "vite": "^6.0.5",
     "vite-plugin-pwa": "^0.21.1"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
   }
 }
