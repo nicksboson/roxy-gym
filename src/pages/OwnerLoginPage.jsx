@@ -112,8 +112,15 @@ export default function OwnerLoginPage() {
   return (
     <main className="auth-page">
       <section className="auth-card">
-        <div className="brand" style={{ marginBottom: 12 }}>
-          Roxy <span>GYM</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <img 
+            src="/icons/image.avif" 
+            alt="Roxy GYM" 
+            style={{ width: '42px', height: '42px', borderRadius: '10px', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)' }} 
+          />
+          <div className="brand" style={{ marginBottom: 0 }}>
+            Roxy <span>GYM</span>
+          </div>
         </div>
         <div
           className="brand-sub"

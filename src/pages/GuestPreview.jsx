@@ -762,9 +762,16 @@ export default function GuestPreview({ onSignInClick }) {
     <div className="roxy-app">
       <div className="app-shell swipe-layout">
         <header className="topbar">
-          <div>
-            <div className="brand">Roxy <span>GYM</span></div>
-            <div className="brand-sub">Owner Preview Mode</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <img 
+              src="/icons/image.avif" 
+              alt="Roxy GYM" 
+              style={{ width: '36px', height: '36px', borderRadius: '10px', objectFit: 'cover', boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)', flexShrink: 0 }} 
+            />
+            <div>
+              <div className="brand">Roxy <span>GYM</span></div>
+              <div className="brand-sub">Owner Preview Mode</div>
+            </div>
           </div>
           <div className="topbar-actions">
             <button

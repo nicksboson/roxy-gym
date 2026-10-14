@@ -64,10 +64,24 @@ function Layout({ user, profile, activeTab = 0, onTabSelect, isSwipeRoute = fals
     <div className="roxy-app">
       <div className={`app-shell ${isSwipeRoute ? 'swipe-layout' : ''}`}>
         <header className="topbar">
-            <div onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer' }}>
-              <div className="brand">Roxy <span>GYM</span></div>
-            <div className="brand-sub">Owner Management</div>
-          </div>
+            <div onClick={() => navigate('/dashboard')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img 
+                src="/icons/image.avif" 
+                alt="Roxy GYM" 
+                style={{ 
+                  width: '36px', 
+                  height: '36px', 
+                  borderRadius: '10px', 
+                  objectFit: 'cover', 
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.12)',
+                  flexShrink: 0 
+                }} 
+              />
+              <div>
+                <div className="brand">Roxy <span>GYM</span></div>
+                <div className="brand-sub">Owner Management</div>
+              </div>
+            </div>
           <div className="topbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
               type="button"
