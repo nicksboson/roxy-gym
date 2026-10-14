@@ -1,0 +1,57 @@
+name: Build iOS App in Cloud
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build iOS Native App
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Production Bundle
+        run: npm run build
+
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+
+      - name: Compile Native iOS App
+        working-directory: ios/App
+        run: |
+          xcodebuild build \
+            -project App.xcodeproj \
+            -scheme App \
+            -destination "generic/platform=iOS" \
+            -configuration Release \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            BUILD_DIR=build
+
+      - name: Package App (.ipa)
+        working-directory: ios/App
+        run: |
+          mkdir -p build/Payload
+          cp -r build/Release-iphoneos/App.app build/Payload/
+          cd build
+          zip -r RoxyGYM.ipa Payload
+
+      - name: Upload iOS .ipa Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoxyGYM-iOS-App
+          path: ios/App/build/RoxyGYM.ipa
+          retention-days: 14
