@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useMemo, useState, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { App as CapApp } from '@capacitor/app';
 
 import { useMembers, usePlans } from '../hooks';
 import { initials } from '../utils';
@@ -198,6 +199,24 @@ export default function AppShell({ user, profile }) {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [refetchMembers]);
+  useEffect(() => {
+    const HOME_PATHS = ['/dashboard', '/performance', '/'];
+    let listener = null;
+    const setup = async () => {
+      try {
+        listener = await CapApp.addListener('backButton', () => {
+          const path = window.location.pathname;
+          if (HOME_PATHS.includes(path)) {
+            CapApp.exitApp();
+          } else {
+            navigate(-1);
+          }
+        });
+      } catch (_) {}
+    };
+    setup();
+    return () => { if (listener) listener.remove(); };
+  }, [navigate]);
 
   const data = { members, plans };
 
